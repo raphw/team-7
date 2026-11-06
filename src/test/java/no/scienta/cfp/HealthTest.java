@@ -8,6 +8,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.MethodOrderer;
@@ -75,8 +78,19 @@ class HealthTest {
     void probesThatTimeOutDoNotPileUpWhileTheDatabaseHangs() throws Exception {
         POSTGRES.getDockerClient().pauseContainerCmd(POSTGRES.getContainerId()).exec();
         try {
-            for (int i = 0; i < 3; i++) {
-                assertEquals(503, health().statusCode());
+            // at the same time, so they overlap like a burst of probes would (and the test waits 5 s, not 15)
+            List<CompletableFuture<Integer>> probes = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                probes.add(CompletableFuture.supplyAsync(() -> {
+                    try {
+                        return health().statusCode();
+                    } catch (Exception e) {
+                        throw new IllegalStateException(e);
+                    }
+                }));
+            }
+            for (CompletableFuture<Integer> probe : probes) {
+                assertEquals(503, probe.join());
             }
             long threads = healthCheckThreads();
             assertTrue(threads <= 1, threads + " health-check threads");

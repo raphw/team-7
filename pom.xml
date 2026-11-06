@@ -90,6 +90,12 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.5.4</version>
+                <configuration>
+                    <!-- Two JVMs run test classes side by side: HealthTest (its own Postgres, ~10 s of waiting for
+                         timeouts) beside the rest. Each JVM starts its own shared test Postgres (TestDatabase). -->
+                    <forkCount>2</forkCount>
+                    <reuseForks>true</reuseForks>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
